@@ -77,6 +77,9 @@ void setup() {
 }
 
 void loop() {
+  //keyChangeFlg = keyChanged(); 
+  //if (
+  
   // put your main code here, to run repeatedly:
   if(ALARM_OFF == systemState){
     if(doorOpen()){
@@ -101,7 +104,7 @@ void loop() {
       activateAlarm();
     }
   }
-  keyChangeFlg = keyChanged();  
+  keyChangeFlg = keyChanged(); 
   delay(50);
 }
 
