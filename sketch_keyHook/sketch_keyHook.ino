@@ -123,8 +123,9 @@ void loop() {
     //openCounter = 0;
     //alarmCounter = 20;
     //keyTakeCounter = 0;
-    openTrigger = false; //we may remove this if we always want an alarm on entry
+    openTrigger = false;
     keyTakeFlg = false;
+    isArmed = false;    //this could be removed to always have the system aremd no matter how many keys.
   }
   if (!keyTakeFlg) {
     if (keyTaken()) {
@@ -136,7 +137,7 @@ void loop() {
   }
 
   //check if leaving delay has expired
-  if ( keyTakeFlg && (millis() - time_exit) > TIMEOUT_ALARM) {
+  if ( !isArmed && (millis() - time_exit) > TIMEOUT_ALARM) {
     Serial.println("Leaving Delay expired.");
     keyTakeFlg = false;
     isArmed = true;
@@ -325,6 +326,8 @@ void turnOffAlarm(){
   buzzerOff();
   setLEDStatus();
   alarmOn = false;
+  time_exit = millis();
+  isArmed = false;
 }
 
 
