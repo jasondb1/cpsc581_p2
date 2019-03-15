@@ -77,8 +77,32 @@ void setup() {
 }
 
 void loop() {
+ 
   //keyChangeFlg = keyChanged(); 
-  //if (
+  //boolean setAlarm = false;
+  //if(doorOpen() && currentKeyNum()!=3 && !keyChangeFlg) {
+  //    setAlarm = true;
+  //    int i = 0;
+  //    boolean timerExpired = false;
+  //    while(!timerExpired){
+  //        if (keyChanged()) { //button has to be added too
+  //            setAlarm = false;
+  //        }
+  //        delay(1000)
+  //        if (i>=30) {
+  //            i++
+  //        }
+  //    }
+  //}
+  //if(setAlarm) {
+  //    activateAlarm;
+  //    for (j = 0; j<60; j++) {
+  //        delay(1000)
+  //        //if button pressed or key changed
+  //        //j+60;
+  //    }
+  //    turnOffAlarm()
+  //}
   
   // put your main code here, to run repeatedly:
   if(ALARM_OFF == systemState){
