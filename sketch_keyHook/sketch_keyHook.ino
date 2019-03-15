@@ -151,10 +151,13 @@ void loop() {
         for (int j = 0; j<20; j++) { // delay before alarm is set 
           delay(500);
           if(checkKeyNum()) { // if key placed on hook before delay over; short beep occurs needs fix
-            j += 10;
+            j += 20;
+          }
+          if (j==19) {
+            activateAlarm();
           }
         }
-        activateAlarm();
+        
 
         for (int j = 0; j<20; j++) { // delay before alarm is off 
           delay(500);
@@ -204,6 +207,7 @@ boolean keyChanged() {
   delay(50);  // eliminate noise
   if(currentKeyNum() == keyNum) {
     preKeyNum = keyNum;
+    if(ALARM_OFF == systemState)delay(3000);
     return true;
   }
   return false;
