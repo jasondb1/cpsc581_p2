@@ -11,6 +11,8 @@
 #define LED_BOARD = LED_BUILTIN //This could be used for error signalling
 
 const int LED[] = {LED_R1, LED_G1, LED_R2, LED_G2, LED_R3, LED_G3};
+const int LED_RED[] = {LED_R1, LED_R2, LED_R3};
+const int LED_GRN[] = {LED_G1, LED_G2, LED_G3};
 
 //input pins
 #define KEY_1 51
@@ -33,6 +35,12 @@ state systemState = ALARM_OFF;
 int preKeyNum = 0;
 int keyNum = 0;
 boolean keyChangeFlg = false;
+
+unsigned long preAlarmWait = 0;
+unsigned long preAlarmDuration = 0;
+
+unsigned long setWait = 2000;
+unsigned long setDuration = 20000;
 
 ////////////////////////////////////////////
 // setup
@@ -65,71 +73,118 @@ void setup() {
 
   int keyCheck = 0;
   preKeyNum = currentKeyNum();
-  while(keyCheck < 3){  // Eliminate noise
+  while(keyCheck < 3) {  // Eliminate noise
     keyNum = currentKeyNum();
-    if(keyNum == preKeyNum)keyCheck ++;
-    else{
+    if(keyNum == preKeyNum) {
+      keyCheck ++;
+    } else {
       preKeyNum = keyNum;
       keyCheck = 0;
     }
     delay(50);
   }
+  
 }
 
 void loop() {
- 
-  //keyChangeFlg = keyChanged(); 
-  //boolean setAlarm = false;
-  //if(doorOpen() && currentKeyNum()!=3 && !keyChangeFlg) {
-  //    setAlarm = true;
-  //    int i = 0;
-  //    boolean timerExpired = false;
-  //    while(!timerExpired){
-  //        if (keyChanged()) { //button has to be added too
-  //            setAlarm = false;
-  //        }
-  //        delay(1000)
-  //        if (i>=30) {
-  //            i++
-  //        }
-  //    }
-  //}
-  //if(setAlarm) {
-  //    activateAlarm;
-  //    for (j = 0; j<60; j++) {
-  //        delay(1000)
-  //        //if button pressed or key changed
-  //        //j+60;
-  //    }
-  //    turnOffAlarm()
-  //}
+  setLEDStatus();
+  /*
+  boolean setAlarm = false;
+  if(doorOpen() && currentKeyNum()!=3 && !keyChangeFlg) {
+      setAlarm = true;
+      int i = 0;
+      boolean timerExpired = false;
+      while(!timerExpired){
+          if (keyChanged()) { //button has to be added too
+              setAlarm = false;
+          }
+          delay(1000);
+          if (i<=30) {
+              i++;
+          }
+      }
+  }
+  if(setAlarm) {
+      activateAlarm();
+      for (int j = 0; j<60; j++) {
+          delay(1000);
+          //if button pressed or key changed
+          //j+60;
+      }
+      turnOffAlarm();
+  }
+  */
   
   // put your main code here, to run repeatedly:
-  if(ALARM_OFF == systemState){
-    if(doorOpen()){
-      if(!keyChangeFlg){
+
+  unsigned long currAlarmDuration;
+  unsigned long currAlarmWait;
+  
+  if(ALARM_OFF == systemState) {
+    if(doorOpen()) {
+      if(!keyChangeFlg || currentKeyNum()!=3) {
         systemState = ALARM_ON;
-      }else{
-        
+      } else {
+        systemState = ALARM_OFF;
       }
-    }else{
+    } else {
       doorState = CLOSED;
     }
-  }else if(ALARM_ON == systemState){
-    if(keyChangeFlg){
+  } else if(ALARM_ON == systemState) {
+    if(keyChangeFlg) {
       turnOffAlarm();
-      delay(5000); //deley 5 sec to reset the system
+      delay(1000); //deley 1 sec to reset the system
+      
       // reset system
       preKeyNum = keyNum;
       keyChangeFlg = false;
       systemState = ALARM_OFF;
       doorState = CLOSED;
-    }else{
-      activateAlarm();
+    } else {
+      if(!checkKeyNum()) {
+//        currAlarmWait = millis();
+//        if (currAlarmWait - preAlarmWait < setWait) {
+//          preAlarmWait = currAlarmWait;
+//        } else {
+//          activateAlarm();
+//        }
+        
+        for (int j = 0; j<10; j++) { // delay before alarm is set 
+          delay(1000);
+          if(checkKeyNum()) { // if key placed on hook before delay over; short beep occurs needs fix
+            j += 10;
+          }
+        }
+        activateAlarm();
+//        currAlarmDuration = millis();
+//        if (currAlarmDuration - preAlarmDuration != setDuration) {
+//          preAlarmDuration = currAlarmDuration;
+//          if (preAlarmDuration >= setDuration) {
+//            turnOffAlarm();
+//            systemState = ALARM_OFF;
+//          }
+//        }
+
+        for (int j = 0; j<10; j++) { // delay before alarm is off 
+          delay(1000);
+          if(checkKeyNum()) { // if key placed on hook before delay over;
+            j += 10;
+          }
+        }
+        turnOffAlarm();
+        systemState = ALARM_OFF;
+
+      } else {
+        turnOffAlarm();
+        systemState = ALARM_OFF;
+        doorState = CLOSED;
+      }
     }
   }
-  keyChangeFlg = keyChanged(); 
+  //keyChangeFlg = keyChanged(); 
+  keyChangeFlg = checkKeyNum();
   delay(50);
+  selfTest();
 }
 
 
@@ -138,8 +193,9 @@ void loop() {
 //
 boolean doorOpen() {
   sensorPIR = digitalRead(PIR_1);
-  if(HIGH == sensorPIR){  // motion detected
-    if(CLOSED == doorState){
+  Serial.println("[PIR PIN" + String(IN[3]) +"]" + digitalRead(IN[3]));
+  if(HIGH == sensorPIR) {  // motion detected
+    if(CLOSED == doorState) {
       doorState = OPEN;
       return true;
     }
@@ -152,9 +208,11 @@ boolean doorOpen() {
 //
 boolean keyChanged() {
   keyNum = currentKeyNum();
-  if(keyNum == preKeyNum)return false;
+  if(keyNum == preKeyNum) {
+    return false;
+  }
   delay(50);  // eliminate noise
-  if(currentKeyNum() == keyNum){
+  if(currentKeyNum() == keyNum) {
     preKeyNum = keyNum;
     return true;
   }
@@ -162,46 +220,63 @@ boolean keyChanged() {
 }
 
 ///////////////////////////////////
+// Detect if the key number has changed
+//
+boolean checkKeyNum() {
+  keyNum = currentKeyNum();
+  if (keyNum < preKeyNum) {
+    return false;
+  } 
+  delay(50);
+  if(keyNum >= preKeyNum && keyNum != 3) {
+    preKeyNum = keyNum;
+    return true;
+  }
+}
+
+///////////////////////////////////
 // Check current number of keys
 //
 int currentKeyNum() {
   int cnt=0; 
-  for(int i=0; i<(sizeof(KEY) / sizeof(KEY[0])); i++){
-    if(!digitalRead(KEY[i]))cnt ++;
+  for(int i=0; i<(sizeof(KEY) / sizeof(KEY[0])); i++) {
+    if(!digitalRead(KEY[i])) {
+      cnt ++;
+    }
   }
+  Serial.println("Current Key Count = " + String(cnt));
   return cnt;
 }
 
 void turnOffAlarm(){
   buzzerOff();
-  for (int i = 0; i < (sizeof(LED) / sizeof(LED[0])); i++) {
-    ledOff(LED[i]);
-  }
+  setLEDStatus();
 }
 
 void activateAlarm(){
   buzzerOn();
-  for (int i = 0; i < (sizeof(LED) / sizeof(LED[0])); i++) {
-    ledOn(LED[i]);
-    delay(50);
-    ledOff(LED[i]);
-    delay(50);
-  }
+//  for (int i = 0; i < (sizeof(LED) / sizeof(LED[0])); i++) {
+//    ledOn(LED[i]);
+//    delay(50);
+//    ledOff(LED[i]);
+//    delay(50);
+//  }
 }
 
 void selfTest() {
-
+/*
   for (int i = 0; i < (sizeof(LED) / sizeof(LED[0])); i++) {
     ledOn(LED[i]);
     delay(50);
     ledOff(LED[i]);
     delay(50);
   }
-
+  
     buzzerOn();
     delay(50);
     buzzerOff();
     delay(50);
+*/
 
   for (int i = 0; i < (sizeof(IN) / sizeof(IN[0])); i++) {
     Serial.println("[INPUT " + String(i) + " PIN" + String(IN[i]) +"]" + digitalRead(IN[i]));
@@ -216,6 +291,21 @@ void selfTest() {
 boolean keyStatus(int key) {
   Serial.println("[KEY "+ String(key)  +" STATUS]:" + digitalRead(KEY[key])) ;
   return digitalRead(digitalRead(KEY[key]));
+}
+
+///////////////////////////////////
+//Turn an LED on based on key status
+//
+void setLEDStatus() {
+  for (int i = 0; i < (sizeof(KEY) / sizeof(LED[0])); i++) {
+    if(digitalRead(KEY[i])) {
+      ledOn(LED_GRN[i]);
+      ledOff(LED_RED[i]);
+    } else {
+      ledOn(LED_RED[i]);
+      ledOff(LED_GRN[i]);
+    }
+  }
 }
 
 ///////////////////////////////////
