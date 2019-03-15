@@ -167,7 +167,14 @@ boolean keyChanged() {
 int currentKeyNum() {
   int cnt=0; 
   for(int i=0; i<(sizeof(KEY) / sizeof(KEY[0])); i++){
-    if(!digitalRead(KEY[i]))cnt ++;
+    if(!digitalRead(KEY[i])) {
+      ledOn(LED[(2*i)+1]);
+      ledOff(LED[(2*i)]);
+      cnt ++;
+    } else {
+      ledOff(LED[(2*i)+1]);
+      ledOn(LED[(2*i)]);
+    }
   }
   return cnt;
 }
