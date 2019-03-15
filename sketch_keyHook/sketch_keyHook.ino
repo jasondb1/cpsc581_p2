@@ -20,7 +20,7 @@ const int LED_GRN[] = {LED_G1, LED_G2, LED_G3};
 #define KEY_3 53
 
 #define PIR_1 24
-#define BTN_1 40
+#define BTN_1 18
 
 
 
@@ -30,11 +30,11 @@ const int KEY[] = {KEY_1, KEY_2, KEY_3};
 enum state{ALARM_OFF, ALARM_ON, CLOSED, OPEN};
 
 int sensorPIR = 0;
-state doorState = CLOSED;
-state systemState = ALARM_OFF;
-int preKeyNum = 0;
-int keyNum = 0;
-boolean keyChangeFlg = false;
+volatile state doorState = CLOSED;
+volatile state systemState = ALARM_OFF;
+volatile int preKeyNum = 0;
+volatile int keyNum = 0;
+volatile boolean keyChangeFlg = false;
 
 unsigned long preAlarmWait = 0;
 unsigned long preAlarmDuration = 0;
@@ -71,6 +71,10 @@ void setup() {
   digitalWrite(KEY_2, HIGH);
   digitalWrite(KEY_3, HIGH);
 
+  digitalWrite(BTN_1, HIGH);
+
+  attachInterrupt(digitalPinToInterrupt(18), turnOffAlarm, FALLING);
+
   int keyCheck = 0;
   preKeyNum = currentKeyNum();
   while(keyCheck < 3) {  // Eliminate noise
@@ -88,6 +92,7 @@ void setup() {
 
 void loop() {
   setLEDStatus();
+  Serial.println(digitalRead(18));
   /*
   boolean setAlarm = false;
   if(doorOpen() && currentKeyNum()!=3 && !keyChangeFlg) {
@@ -133,7 +138,7 @@ void loop() {
   } else if(ALARM_ON == systemState) {
     if(keyChangeFlg) {
       turnOffAlarm();
-      delay(1000); //deley 1 sec to reset the system
+      delay(500); //deley 1 sec to reset the system
       
       // reset system
       preKeyNum = keyNum;
@@ -142,31 +147,17 @@ void loop() {
       doorState = CLOSED;
     } else {
       if(!checkKeyNum()) {
-//        currAlarmWait = millis();
-//        if (currAlarmWait - preAlarmWait < setWait) {
-//          preAlarmWait = currAlarmWait;
-//        } else {
-//          activateAlarm();
-//        }
         
-        for (int j = 0; j<10; j++) { // delay before alarm is set 
-          delay(1000);
+        for (int j = 0; j<20; j++) { // delay before alarm is set 
+          delay(500);
           if(checkKeyNum()) { // if key placed on hook before delay over; short beep occurs needs fix
             j += 10;
           }
         }
         activateAlarm();
-//        currAlarmDuration = millis();
-//        if (currAlarmDuration - preAlarmDuration != setDuration) {
-//          preAlarmDuration = currAlarmDuration;
-//          if (preAlarmDuration >= setDuration) {
-//            turnOffAlarm();
-//            systemState = ALARM_OFF;
-//          }
-//        }
 
-        for (int j = 0; j<10; j++) { // delay before alarm is off 
-          delay(1000);
+        for (int j = 0; j<20; j++) { // delay before alarm is off 
+          delay(500);
           if(checkKeyNum()) { // if key placed on hook before delay over;
             j += 10;
           }
@@ -180,8 +171,7 @@ void loop() {
         doorState = CLOSED;
       }
     }
-  }
-  //keyChangeFlg = keyChanged(); 
+  } 
   keyChangeFlg = checkKeyNum();
   delay(50);
   selfTest();
