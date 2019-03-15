@@ -22,6 +22,9 @@ const int LED_GRN[] = {LED_G1, LED_G2, LED_G3};
 #define PIR_1 21
 #define BTN_1 18
 
+#define TIMEOUT_ALARM 5000
+#define TIMEOUT_LEAVE 10000
+#define TIMEOUT_ENTER 10000
 
 
 const int IN[] = {KEY_1, KEY_2, KEY_3, PIR_1, BTN_1};
@@ -37,10 +40,17 @@ volatile int keyNum = 0;
 volatile boolean keyChangeFlg = false;
 volatile boolean keyTakeFlg = false;
 volatile boolean openTrigger = false;
-int keyTakeCounter = 0;
-int openCounter = 0;
-int alarmCounter = 0;
+volatile boolean alarmStatus = false;
+//int keyTakeCounter = 0;
+//int openCounter = 0;
+//int alarmCounter = 0;
 boolean alarmOn = false;
+boolean isArmed = false;
+
+
+unsigned long time_exit;
+unsigned long time_enter;
+unsigned long time_alarm;
 
 unsigned long preAlarmWait = 0;
 unsigned long preAlarmDuration = 0;
@@ -80,9 +90,6 @@ void setup() {
   digitalWrite(BTN_1, HIGH);
   digitalWrite(PIR_1, HIGH);
 
-  attachInterrupt(digitalPinToInterrupt(18), turnOffAlarm, FALLING);
-  attachInterrupt(digitalPinToInterrupt(21), motionFound, FALLING);
-
   int keyCheck = 0;
   preKeyNum = currentKeyNum();
   while(keyCheck < 3) {  // Eliminate noise
@@ -95,55 +102,65 @@ void setup() {
     }
     delay(50);
   }
+
+  attachInterrupt(digitalPinToInterrupt(18), turnOffAlarm, FALLING);
+  attachInterrupt(digitalPinToInterrupt(21), motionFound, FALLING);
   
 }
 
+////////////////////////////////////////////
+// main loop
+//
+//
 void loop() {
+  
   setLEDStatus();
   Serial.println(String(keyAdded()));
+  
+  //check if key is added/taken
   if (keyAdded()) {
     Serial.println("Key Added");
-    openCounter = 0;
-    alarmCounter = 20;
-    keyTakeCounter = 0;
-    openTrigger = false;
+    //openCounter = 0;
+    //alarmCounter = 20;
+    //keyTakeCounter = 0;
+    openTrigger = false; //we may remove this if we always want an alarm on entry
     keyTakeFlg = false;
   }
   if (!keyTakeFlg) {
     if (keyTaken()) {
-      Serial.println("Key Taken");
+      Serial.println("Leaving Delay Started");
       keyTakeFlg = true;
+      isArmed = false;
+      time_exit = millis();
     }
   }
-  if (keyTakeCounter>20) {
-    Serial.println("Taken expired.");
+
+  //check if leaving delay has expired
+  if ( keyTakeFlg && (millis() - time_exit) > TIMEOUT_ALARM) {
+    Serial.println("Leaving Delay expired.");
     keyTakeFlg = false;
-    keyTakeCounter = 0;
-  } else {
-    keyTakeCounter++;
+    isArmed = true;
   }
-  if (openTrigger) {
-    if (openCounter < 20) {
-      openCounter++;
-      Serial.println(String(openCounter));
-    } else {
+
+  //Entering Timeout
+  if (openTrigger && isArmed) {
+    Serial.println("Movement Detected while armed.");
+    if (millis() - time_enter > TIMEOUT_ENTER) {
       activateAlarm();
-      alarmOn = true;
       openTrigger = false;
-      openCounter = 0;
     }
   }
-  if (alarmOn == true) {
-    if (alarmCounter < 20) {
-      alarmCounter++;
-    } else {
+
+  //turn off alarm after timeout
+  if (alarmOn) {
+    if ( (millis() - time_alarm) > TIMEOUT_ALARM) {
       turnOffAlarm();
-      alarmCounter = 0;
-      alarmOn = false;
     }
   }
-  delay(500);
+  
+  //delay(500);
 }
+
   
   // put your main code here, to run repeatedly:
 
@@ -204,15 +221,18 @@ void loop() {
 
 
 ///////////////////////////////////
-// Detect door activity
+// Detect motion
 //
 
 void motionFound() {
-  if (!keyTaken) {
+  if (isArmed) {
     openTrigger = true;
   }
 }
 
+///////////////////////////////////
+// Detect entry
+//
 boolean doorOpen() {
   sensorPIR = digitalRead(PIR_1);
   Serial.println("[PIR PIN" + String(IN[3]) +"]" + digitalRead(IN[3]));
@@ -241,6 +261,9 @@ boolean keyChanged() {
   return false;
 }
 
+///////////////////////////////////
+// Detect if the key was added
+//
 boolean keyAdded() {
   keyNum = currentKeyNum();
   delay(50);
@@ -251,6 +274,10 @@ boolean keyAdded() {
   return false;
 }
 
+
+///////////////////////////////////
+// Detect if the key was taken
+//
 boolean keyTaken() {
   keyNum = currentKeyNum();
   delay(50);
@@ -290,19 +317,24 @@ int currentKeyNum() {
   return cnt;
 }
 
+
+///////////////////////////////////
+// Deactivate Alarm
+//
 void turnOffAlarm(){
   buzzerOff();
   setLEDStatus();
+  alarmOn = false;
 }
 
+
+///////////////////////////////////
+// Activate Alarm
+//
 void activateAlarm(){
+  time_alarm = millis();
+  alarmOn = true;
   buzzerOn();
-//  for (int i = 0; i < (sizeof(LED) / sizeof(LED[0])); i++) {
-//    ledOn(LED[i]);
-//    delay(50);
-//    ledOff(LED[i]);
-//    delay(50);
-//  }
 }
 
 void selfTest() {
